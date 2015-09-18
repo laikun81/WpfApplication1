@@ -1,0 +1,12 @@
+﻿<UserControl x:Name="userControl" x:Class="WpfApplication1.ImageFrame"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300" >
+    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" >
+        <Image Name="img" Width="{Binding RelativeSource={RelativeSource Self}, Path=Source.PixelWidth}" Height="{Binding RelativeSource={RelativeSource Self}, Path=Source.PixelHeight}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <Label x:Name="lbl_name" Content="Label" HorizontalAlignment="Center" VerticalAlignment="Top" FontFamily="Noto Sans Korean Medium" FontSize="14"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,9 @@
+﻿<Window x:Name="ImageWindow1" x:Class="WpfApplication1.ImageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ImageWindow1" Height="{DynamicResource {x:Static SystemParameters.MaximumWindowTrackHeightKey}}" Width="{DynamicResource {x:Static SystemParameters.MaximizedPrimaryScreenWidthKey}}" Background="Transparent" AllowsTransparency="True" WindowStyle="None" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <ScrollViewer Name="scroll" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Visible" HorizontalContentAlignment="Right" VerticalContentAlignment="Center" FlowDirection="RightToLeft">
+        <StackPanel x:Name="panel" Orientation="Horizontal" FlowDirection="RightToLeft" HorizontalAlignment="Right" VerticalAlignment="Center" ScrollViewer.CanContentScroll="True">            
+        </StackPanel>
+    </ScrollViewer>
+</Window>
