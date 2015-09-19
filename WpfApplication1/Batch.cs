@@ -34,7 +34,7 @@ namespace WpfApplication1
         protected override bool FileOpen()
         {
             // 파일 명 필터링
-            if (filterfile.Any(x => x.Equals(Path.GetFileName(FileName), StringComparison.OrdinalIgnoreCase)) || !filterext.Contains(Path.GetExtension(FileName)))
+            if (filterfile.Any(x => x.Equals(Path.GetFileName(UnArchiveFileName), StringComparison.OrdinalIgnoreCase)) || !filterext.Contains(Path.GetExtension(UnArchiveFileName)))
             {
                 progressMax--;
                 return false;
@@ -51,17 +51,17 @@ namespace WpfApplication1
 
         protected override bool StreamClose()
         {
-            if (FileStream == null || FileStream.Length == 0)
+            if (UnArchiveFileStream == null || UnArchiveFileStream.Length == 0)
                 return true;
 
             // 파일 사이즈 필터링
-            if (filtersize.Contains(FileStream.Length))
+            if (filtersize.Contains(UnArchiveFileStream.Length))
                 return true;
 
             // 익명함수의 스코프 문제
-            var name = FileName;
+            var name = UnArchiveFileName;
             var stream = new MemoryStream();
-            FileStream.CopyTo(stream);
+            UnArchiveFileStream.CopyTo(stream);
             stream.Seek(0, SeekOrigin.Begin);
             
             // 이미지변환 스레드 기동 
@@ -72,8 +72,10 @@ namespace WpfApplication1
                 name = Regex.Replace(name, "^[^\n]+\\\\", "");
                 name = temporary + Path.DirectorySeparatorChar + Path.ChangeExtension(name, ".jpg");
 
+                // jpg변환
                 using (var jpg = FluxJpeg.Core.Image.ConvertStreamJPG(stream))
                 {
+                    // 변환된 메모리를 파일에 쓰기
                     using (var file = new FileStream(name, FileMode.CreateNew, FileAccess.Write))
                     {
                         jpg.Seek(0, SeekOrigin.Begin);
