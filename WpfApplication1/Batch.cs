@@ -67,10 +67,10 @@ namespace WpfApplication1
             // 이미지변환 스레드 기동 
             task = Task.Factory.StartNew(() =>
             {
-                name = BatchUtil.ReplaceMulti(name, delfilename);
-                name = BatchUtil.ReplaceMulti(name, deltag);
-                name = Regex.Replace(name, "^[^\n]+\\\\", "");
-                name = temporary + Path.DirectorySeparatorChar + Path.ChangeExtension(name, ".jpg");
+                //name = BatchUtil.ReplaceMulti(name, delfilename);
+                //name = BatchUtil.ReplaceMulti(name, deltag);
+                //name = Regex.Replace(name, "^[^\n]+\\\\", "");
+                //name = temporary + Path.DirectorySeparatorChar + Path.ChangeExtension(name, ".jpg");
 
                 // jpg변환
                 using (var jpg = FluxJpeg.Core.Image.ConvertStreamJPG(stream))
@@ -118,13 +118,13 @@ namespace WpfApplication1
             {
                 var arcname = parent.FullName + Path.DirectorySeparatorChar + (target is DirectoryInfo ? target.Name + ".zip" : Path.ChangeExtension(target.Name, ".zip"));
                 if (File.Exists(arcname))
-                    BatchUtil.GoRecycle(arcname);
+                    KS.Util.FileGoRecycle(arcname);
 
                 // 폴더 압축
                 System.IO.Compression.ZipFile.CreateFromDirectory(temporary, arcname, System.IO.Compression.CompressionLevel.NoCompression, false);
 
                 // 원본삭제
-                BatchUtil.GoRecycle(target.FullName);
+                KS.Util.FileGoRecycle(target.FullName);
 
                 // 임시폴더 삭제
                 if (Directory.Exists(temporary))

@@ -5,49 +5,48 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.IO;
+using Microsoft.Win32.SafeHandles;
 
 namespace ArkWrap
 {
-
-    public abstract class Singleton<T> where T : class, new()
+    public abstract class SingletonBase<T> where T : SingletonBase<T>
     {
-        private static T _instance;
-        public static T Instance
-        {
-            get
-            {
-                lock (new object())
-                {
+        #region Members
 
-                    if (_instance == null)
-                        _instance = new T();
-                    return _instance;
-                }
-            }
-        }
-        public static void Init()
+        /// <summary>
+        /// Static instance. Needs to use lambda expression
+        /// to construct an instance (since constructor is private).
+        /// </summary>
+        private static readonly Lazy<T> sInstance = new Lazy<T>(() => CreateInstanceOfT());
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets the instance of this singleton.
+        /// </summary>
+        public static T Instance { get { return sInstance.Value; } }
+
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Creates an instance of T via reflection since T's constructor is expected to be private.
+        /// </summary>
+        /// <returns></returns>
+        private static T CreateInstanceOfT()
         {
-            _instance = new T();
+            return Activator.CreateInstance(typeof(T), true) as T;
         }
+
+        #endregion
     }
 
-    public class Ark
+    public class Ark : SingletonBase<Ark>
     {
         private Ark() { }
-        private static Ark _instance;
-        public static Ark Instance
-        {
-            get
-            {
-                lock (new object())
-                {
-
-                    if (_instance == null)
-                        _instance = new Ark();
-                    return _instance;
-                }
-            }
-        }
 
         #region struct
         //#define ARK_FILESIZE_UNKNOWN			(0xffffffffffffffffLL)	// 파일 크기를 알 수 없을때 사용되는 값
@@ -102,7 +101,11 @@ namespace ArkWrap
                     return Marshal.PtrToStringAuto(fileNameW) ?? Marshal.PtrToStringUni(fileNameW);
                 }
             }
-         // 압축파일에 저장된 파일명 (이 이름은 폴더 경로명도 포함한다)
+            public static SArkFileItem PtrToItem(IntPtr handle)
+            {
+                return (Ark.SArkFileItem)Marshal.PtrToStructure(handle , typeof(Ark.SArkFileItem));
+            }
+            // 압축파일에 저장된 파일명 (이 이름은 폴더 경로명도 포함한다)
             //[MarshalAs(UnmanagedType.LPStr)]
             //public string fileName;
             public IntPtr fileName;
@@ -113,33 +116,33 @@ namespace ArkWrap
             //public string fileCommentW;
             public IntPtr fileCommentW;
             //ARK_TIME_T(INT64)						fileTime;					// last modified(write) time
-            public long fileTime;
+            public readonly long fileTime;
             //INT64					uncompressedSize;
-            public long compressedSize;
+            public readonly long compressedSize;
             //INT64					uncompressedSize;
-            public long uncompressedSize;
+            public readonly long uncompressedSize;
 
             //ARK_ENCRYPTION_METHOD	encryptionMethod;
-            public ARK_ENCRYPTION_METHOD encryptionMethod;
+            public readonly ARK_ENCRYPTION_METHOD encryptionMethod;
             //ARK_FILEATTR			attrib;
-            public uint attrib;
+            public readonly uint attrib;
             //UINT32					crc32;
-            public uint crc32;
+            public readonly uint crc32;
             //ARK_COMPRESSION_METHOD	compressionMethod;
-            public ARK_COMPRESSION_METHOD compressionMethod;
+            public readonly ARK_COMPRESSION_METHOD compressionMethod;
 
             // NTFS 파일 시간 정보. 압축파일에 NTFS 파일정보가 없으면 NULL임
             //SArkNtfsFileTimes*		ntfsFileTimes;				
             [MarshalAs(UnmanagedType.Struct)]
-            public SArkNtfsFileTimes ntfsFileTimes;
+            public readonly SArkNtfsFileTimes ntfsFileTimes;
 
             // 유니코드를 지원하는 압축포맷을 통해서 가져온 파일 이름인가? (즉, fileNameW를 100% 믿을 수 있는가)
             //BOOL32					isUnicodeFileName;			
             [MarshalAs(UnmanagedType.Bool)]
-            public bool isUnicodeFileName;
+            public readonly bool isUnicodeFileName;
             //BOOL32					IsFolder() const { return attrib & ARK_FILEATTR_DIRECTORY ? TRUE : FALSE;}
             //[MarshalAs(UnmanagedType.Bool)]
-            public bool IsFolder() { return (attrib & ARK_FILEATTR_DIRECTORY) == attrib; }
+            public bool IsFolder() { return (attrib & ARK_FILEATTR_DIRECTORY) == ARK_FILEATTR_DIRECTORY; }
         };
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -602,8 +605,8 @@ namespace ArkWrap
         /// 
         /// </summary>
         /// <returns></returns>
-        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "Init")]
-        public static extern ARKERR Init();
+        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "Create")]
+        public static extern ARKERR Create();
 
         [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "IsCreated")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -623,11 +626,12 @@ namespace ArkWrap
         public static extern void CompressorRelease();
 
         /// <summary>
-        /// 압축파일을 열고 목록을 읽어들입니다. 
+        /// 
         /// </summary>
-        /// <param name="path">[in] 압축파일의 경로를 지정합니다.</param>
-        /// <param name="password">[in] 압축파일의 암호를 지정합니다. 암호를 모르거나 없을 경우 NULL(0)을 전달합니다.</param>
-        /// <returns>true 성공적으로 파일을 생성하였습니다. \n false 파일 생성중 문제가 발생하였습니다. 발생한 에러는 GetLastErrorArk()를 통해서 확인가능합니다. </returns>
+        /// <param name="ptr"></param>
+        /// <param name="srcLen"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
         [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "Open")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool Open([In] [MarshalAs(UnmanagedType.LPWStr)] string path, [In] [MarshalAs(UnmanagedType.LPWStr)] string password = null);
@@ -635,11 +639,22 @@ namespace ArkWrap
         /// <summary>
         /// 압축파일을 열고 목록을 읽어들입니다. 
         /// </summary>
+        /// <param name="path">[in] 압축파일의 경로를 지정합니다.</param>
         /// <param name="password">[in] 압축파일의 암호를 지정합니다. 암호를 모르거나 없을 경우 NULL(0)을 전달합니다.</param>
         /// <returns>true 성공적으로 파일을 생성하였습니다. \n false 파일 생성중 문제가 발생하였습니다. 발생한 에러는 GetLastErrorArk()를 통해서 확인가능합니다. </returns>
         [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "OpenStream")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool OpenStream([Out] IntPtr ptr, [In] int srcLen, [In] [MarshalAs(UnmanagedType.LPWStr)] string password = null);
+        public static extern bool OpenStream([In] [MarshalAs(UnmanagedType.LPWStr)] string path, [In] [MarshalAs(UnmanagedType.LPWStr)] string password = null);
+
+        /// <summary>
+        /// 압축파일을 열고 목록을 읽어들입니다. 
+        /// </summary>
+        /// <param name="password">[in] 압축파일의 암호를 지정합니다. 암호를 모르거나 없을 경우 NULL(0)을 전달합니다.</param>
+        /// <returns>true 성공적으로 파일을 생성하였습니다. \n false 파일 생성중 문제가 발생하였습니다. 발생한 에러는 GetLastErrorArk()를 통해서 확인가능합니다. </returns>
+        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "OpenByte")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        //public static extern bool OpenByte([Out] IntPtr ptr, [In] int srcLen, [In] [MarshalAs(UnmanagedType.LPWStr)] string password = null);
+        public static extern bool OpenByte([Out] SafeHandle handle, [In] int srcLen, [In] [MarshalAs(UnmanagedType.LPWStr)] string password = null);
 
         /// <summary>
         /// 파일목록을 얻어올때 압축파일의 손상이 발견되었는지 여부를 확인합니다. 
@@ -734,7 +749,8 @@ namespace ArkWrap
         /// <returns>true 성공적으로 파일을 생성하였습니다. \n false 파일 생성중 문제가 발생하였습니다. 발생한 에러는 GetLastErrorArk()를 통해서 확인가능합니다. </returns>
         [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ExtractOneToBytes")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool ExtractOneToBytes([In]int index, [Out] IntPtr ptr, [In] int outBufLen);
+        //public static extern bool ExtractOneToBytes([In]int index, [Out] IntPtr ptr, [In] int outBufLen);
+        public static extern bool ExtractOneToBytes([In]int index, [Out] SafeHandle handle, [In] int outBufLen);
 
         [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "FileFormat2Str")]
         [return: MarshalAs(UnmanagedType.LPWStr)]
@@ -811,8 +827,10 @@ namespace ArkWrap
         public static extern ARKERR GetLastErrorCompressor();
     }
 
-    public class ArkEvent : Singleton<ArkEvent>
+    public class ArkEvent : SingletonBase<ArkEvent>
     {
+        private ArkEvent() { }
+
         #region OnOpening
         [DllImport("ArkDll.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode, EntryPoint = "SetCB_evt_OnOpening")]
         private static extern int SetCB_evt_OnOpening([MarshalAs(UnmanagedType.FunctionPtr)] MulticastDelegate callback);
@@ -827,25 +845,8 @@ namespace ArkWrap
             [In] IntPtr pFileItem,
             [In] float progress,
             [Out] [MarshalAs(UnmanagedType.Bool)]out bool bStop);
-        private OnOpening _onOpening;
-        public OnOpening Opening { set { _onOpeningAction = value != null ? null : _onOpeningAction; SetCB_evt_OnOpening(_onOpening = value); } }
-        /// <summary>
-        /// Open 메쏘드를 호출하여 파일의 목록을 읽어오고 있을때 호출됩니다.
-        /// </summary>
-        /// <param name="file">목록에 추가된 파일의 정보입니다. 이 값은 압축포맷에 따라서 NULL 이 전달될 수 있습니다.</param>
-        /// <param name="progress">파일의 목록을 읽어오는 진행율을 나타냅니다. 이 값은 0.0~ 100.0 사이의 값을 가지며 압축 포맷에 따라서 항상 0만 전달될 수 있습니다.</param>
-        /// <returns>파일 목록을 가져오는것을 취소할지 여부를 결정할 수 있습니다. 만일 이 값을 true 로 세팅할 경우 파일 목록을 구하는 작업은 취소되고 GetLastError 결과값은 ARKERR_USER_ABORTED 가 됩니다</returns>
-        private delegate bool onOpeningAction(Ark.SArkFileItem file, float progress);
-        private onOpeningAction _onOpeningAction;
-        /// <summary>
-        /// <para>Open 메쏘드를 호출하여 파일의 목록을 읽어오고 있을때 호출되는 대리자에 메쏘드를 등록합니다.</para> 
-        /// <para><see cref="onOpeningAction"/></para>
-        /// </summary>
-        public Func<Ark.SArkFileItem, float, bool> OpeningAction { set { _onOpeningAction = (x, y) => value != null ? value(x, y) : false; SetCB_evt_OnOpening(_onOpening = onOpening); } }
-        void onOpening(IntPtr ptr, float progress, out bool bStop)
-        {
-            bStop = _onOpeningAction != null ? _onOpeningAction((Ark.SArkFileItem)Marshal.PtrToStructure(ptr, typeof(Ark.SArkFileItem)), progress) : false;
-        }
+        public OnOpening _OnOpening;
+        public static void SetOnOpenning(Func<Ark.SArkFileItem, float, bool> evt) { SetCB_evt_OnOpening(evt); }
         #endregion
 
         #region OnStartFile
@@ -863,44 +864,10 @@ namespace ArkWrap
             [In] IntPtr pFileItem,
             [In, Out] [MarshalAs(UnmanagedType.Bool)] ref bool bStopCurrent,
             [In, Out] [MarshalAs(UnmanagedType.Bool)] ref bool bStopAll,
-            [In] int index);
-        private OnStartFile _onStartFile;
-        public OnStartFile StartFile
+            [In] Int32 index);
+        public static void SetOnStartFile(Func<Ark.SArkFileItem, Int32, bool> evt)
         {
-            set
-            {
-                _onStartFile = value;
-                if (value != null)
-                    _onOpeningAction = null;
-                SetCB_evt_OnStartFile(_onStartFile);
-            }
-        }
-        /// <summary>
-        /// 개별 파일아이템(파일, 폴더)의 압축을 해제할때 호출됩니다. 
-        /// </summary>
-        /// <param name="file">압축을 해제할 파일의 정보입니다. </param>
-        /// <param name="index"></param>
-        /// <returns>현재 파일의 압축을 해제를 중지할지 여부를 결정할 수 있습니다.</returns>
-        private delegate bool OnStartFileAction(Ark.SArkFileItem file, int index);
-        private OnStartFileAction _onStartFileAction;
-        /// <summary>
-        /// <para>개별 파일아이템(파일, 폴더)의 압축을 해제할때 호출되는 대리자에 메쏘드를 등록합니다.</para>
-        /// <para><see cref="OnStartFileAction(Ark.SArkFileItem, int)"/></para>
-        /// </summary>
-        public Func<Ark.SArkFileItem, int, bool> StartFileAction
-        {
-            set
-            {
-                _onStartFileAction = (x, y) => value(x, y);
-                if (value != null)
-                    _onStartFile = onStartFile;
-                SetCB_evt_OnStartFile(_onStartFile);
-            }
-        }
-        void onStartFile(IntPtr ptr, ref bool bStopCurrent, ref bool bStopAll, int index)
-        {
-            bStopAll = false;
-            bStopCurrent = _onStartFileAction != null ? _onStartFileAction((Ark.SArkFileItem)Marshal.PtrToStructure(ptr, typeof(Ark.SArkFileItem)), index) : false;
+            SetCB_evt_OnStartFile(evt);
         }
         #endregion
 
@@ -919,39 +886,7 @@ namespace ArkWrap
             [In] IntPtr pProgressInfo,
             [In, Out] [MarshalAs(UnmanagedType.Bool)] ref bool bStopCurrent,
             [In, Out] [MarshalAs(UnmanagedType.Bool)] ref bool bStopAll);
-        private OnProgressFile _onProgressFile;
-        public OnProgressFile ProgressFile
-        {
-            set
-            {
-                _onProgressFile = value;
-                if (value != null)
-                    _onProgressFileAction = null;
-                SetCB_evt_OnProgressFile(_onProgressFile);
-            }
-        }
-        /// <summary>
-        /// 파일의 압축 해제가 진행될때 호출됩니다. 
-        /// </summary>
-        /// <param name="info">압축 해제 진행율 정보입니다.</param>
-        /// <returns>현재 파일의 압축을 해제를 중지할지 여부를 결정할 수 있습니다.</returns>
-        private delegate bool OnProgressFileAction(Ark.SArkProgressInfo info);
-        private OnProgressFileAction _onProgressFileAction;
-        public Func<Ark.SArkProgressInfo, bool> ProgressFileAction
-        {
-            set
-            {
-                _onProgressFileAction = x => value(x);
-                if (value != null)
-                    _onProgressFile = onProgressFile;
-                SetCB_evt_OnProgressFile(_onProgressFile);
-            }
-        }
-        void onProgressFile(IntPtr ptr, ref bool bStopCurrent, ref bool bStopAll)
-        {
-            bStopAll = false;
-            bStopCurrent = _onProgressFileAction != null ? _onProgressFileAction((Ark.SArkProgressInfo)Marshal.PtrToStructure(ptr, typeof(Ark.SArkProgressInfo))) : false;
-        }
+        public static void SetOnProgressFile(Func< Ark.SArkProgressInfo, bool> evt) { SetCB_evt_OnProgressFile(new OnProgressFile((IntPtr x, ref bool r1, ref bool r2) => r1 = evt((Ark.SArkProgressInfo)Marshal.PtrToStructure(x, typeof(Ark.SArkProgressInfo))))); }
         #endregion
 
         #region OnCompleteFile
@@ -967,40 +902,7 @@ namespace ArkWrap
             //[In] [MarshalAs(UnmanagedType.Struct)] Ark.SArkProgressInfo pProgressInfo, 
             [In] IntPtr pProgressInfo,
             [In] Ark.ARKERR nErr);
-        private OnCompleteFile _onCompleteFile;
-        public OnCompleteFile CompleteFile
-        {
-            private get { return _onCompleteFile; }
-            set
-            {
-                _onCompleteFile = value;
-                if (value != null)
-                    _onCompleteFileAction = null;
-                SetCB_evt_OnCompleteFile(_onCompleteFile);
-            }
-        }
-        /// <summary>
-        /// 개별 파일아이템의 압축 해제가 완료되었을때 호출됩니다. 
-        /// </summary>
-        /// <param name="info"><para>압축 해제 진행율 정보입니다.</para><para>자세한 사항은 <see cref="Ark.SArkProgressInfo"/> 항목을 참고하세요 </para></param>
-        /// <param name="err">압축 해제 결과에 대한 에러코드입니다. 에러가 발생하지 않았을 경우 ARKERR_NOERR 이 전달됩니다.</param>
-        private delegate void onCompleteFileAction(Ark.SArkProgressInfo info, Ark.ARKERR err);
-        private onCompleteFileAction _onCompleteFileAction;
-        public Action<Ark.SArkProgressInfo, Ark.ARKERR> CompleteFileAction
-        {
-            set
-            {
-                _onCompleteFileAction = (x, y) => value(x, y);
-                if (value != null)
-                    _onCompleteFile = onCompleteFile;
-                SetCB_evt_OnCompleteFile(_onCompleteFile);
-            }
-        }
-        void onCompleteFile(IntPtr ptr, Ark.ARKERR nErr)
-        {
-            if (_onCompleteFileAction != null)
-                _onCompleteFileAction((Ark.SArkProgressInfo)Marshal.PtrToStructure(ptr, typeof(Ark.SArkProgressInfo)), nErr);
-        }
+        public static void SetOnCompleteFile(Action<Ark.SArkProgressInfo, Ark.ARKERR> evt) { SetCB_evt_OnCompleteFile(evt); }
         #endregion
 
         #region OnError
@@ -1012,41 +914,7 @@ namespace ArkWrap
             [In] IntPtr pFileItem,
             [In] [MarshalAs(UnmanagedType.Bool)] bool bIsWarning,
             [In, Out] [MarshalAs(UnmanagedType.Bool)] ref bool bStopAll);
-        private OnError _onError;
-        public OnError Error
-        {
-            private get { return _onError; }
-            set
-            {
-                _onError = value;
-                if (value != null)
-                    _onErrorAction = null;
-                SetCB_evt_OnError(_onError);
-            }
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="err"></param>
-        /// <param name="file"></param>
-        /// <param name="stop"></param>
-        /// <returns></returns>
-        private delegate bool OnErrorAction(Ark.ARKERR err, Ark.SArkFileItem file, bool stop);
-        private OnErrorAction _onErrorAction;
-        public Func<Ark.ARKERR, Ark.SArkFileItem, bool, bool> ErrorAction
-        {
-            set
-            {
-                _onErrorAction = (x, y, z) => value(x, y, z);
-                if (value != null)
-                    _onError = onError;
-                SetCB_evt_OnError(_onError);
-            }
-        }
-        void onError(Ark.ARKERR nErr, IntPtr pFileItem, bool bIsWarning, ref bool bStopAll)
-        {
-            bStopAll = _onErrorAction != null ? _onErrorAction(nErr, (Ark.SArkFileItem)Marshal.PtrToStructure(pFileItem, typeof(Ark.SArkFileItem)), bIsWarning) : false;
-        }
+        public static void SetOnError (Func<Ark.ARKERR, Ark.SArkFileItem, bool, bool> evt) { SetCB_evt_OnError(evt); }
         #endregion
 
         #region OnMultiVolumeFileChanged
@@ -1054,14 +922,9 @@ namespace ArkWrap
         private static extern int SetCB_evt_OnMultiVolumeFileChanged([MarshalAs(UnmanagedType.FunctionPtr)] MulticastDelegate callback);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         public delegate void OnMultiVolumeFileChanged([In] [MarshalAs(UnmanagedType.LPWStr)] string szPathFileName);
-        private OnMultiVolumeFileChanged _onMultiVolumeFileChanged;
-        public OnMultiVolumeFileChanged MultiVolumeFileChanged
+        public static void SetOnMultiVolumeFileChanged(Action<string> evt)
         {
-            set
-            {
-                _onMultiVolumeFileChanged = value;
-                SetCB_evt_OnMultiVolumeFileChanged(_onMultiVolumeFileChanged);
-            }
+            SetCB_evt_OnMultiVolumeFileChanged(evt);
         }
         #endregion
 
@@ -1074,47 +937,6 @@ namespace ArkWrap
             [In] [MarshalAs(UnmanagedType.LPWStr)] string szLocalPathName,
             [Out] out Ark.ARK_OVERWRITE_MODE overwrite,
             [Out] [MarshalAs(UnmanagedType.LPWStr)] out string pathName2Rename);
-        private OnAskOverwrite _onAskOverwrite;
-        public OnAskOverwrite AskOverwrite
-        {
-            private get { return _onAskOverwrite; }
-            set
-            {
-                _onAskOverwrite = value;
-                if (value != null)
-                    _onErrorAction = null;
-                SetCB_evt_OnAskOverwrite(_onAskOverwrite);
-            }
-        }
-        private delegate string onAskOverwriteAction(Ark.SArkFileItem file, string path);
-        private onAskOverwriteAction _onAskOverwriteAction;
-        public Func<Ark.SArkFileItem, string, string> AskOverwriteAction
-        {
-            set
-            {
-                _onAskOverwriteAction = (x, y) => value(x, y);
-                if (value != null)
-                    _onAskOverwrite = onAskOverwrite;
-                SetCB_evt_OnAskOverwrite(_onAskOverwrite);
-            }
-        }
-        void onAskOverwrite(IntPtr pFileItem, string szLocalPathName, out Ark.ARK_OVERWRITE_MODE overwrite, out string pathName2Rename)
-        {
-            if (_onAskOverwriteAction == null)
-            {
-                overwrite = Ark.ARK_OVERWRITE_MODE.OVERWRITE;
-                pathName2Rename = null;
-                return;
-            }
-            Ark.SArkFileItem file = (Ark.SArkFileItem)Marshal.PtrToStructure(pFileItem, typeof(Ark.SArkFileItem));
-            pathName2Rename = _onAskOverwriteAction((Ark.SArkFileItem)Marshal.PtrToStructure(pFileItem, typeof(Ark.SArkFileItem)), szLocalPathName);
-            if (string.IsNullOrEmpty(pathName2Rename))
-                overwrite = Ark.ARK_OVERWRITE_MODE.SKIP;
-            else if (!pathName2Rename.Equals(file.fileNameW))
-                overwrite = Ark.ARK_OVERWRITE_MODE.RENAME;
-            else
-                overwrite = Ark.ARK_OVERWRITE_MODE.OVERWRITE;
-        }
         #endregion
 
         #region OnAskPassword
@@ -1126,116 +948,22 @@ namespace ArkWrap
             [In] Ark.ARK_PASSWORD_ASKTYPE askType,
             [In, Out] ref Ark.ARK_PASSWORD_RET ret,
             [Out] out string passwordW);
-        private OnAskPassword _onAskPassword;
-        public OnAskPassword AskPassword
-        {
-            private get { return _onAskPassword; }
-            set
-            {
-                _onAskPassword = value;
-                if (value != null)
-                    _onAskPasswordAction = null;
-                SetCB_evt_OnAskPassword(_onAskPassword);
-            }
-        }
-        private delegate string onAskPasswordAction(Ark.SArkFileItem file, Ark.ARK_PASSWORD_ASKTYPE ask, Ark.ARK_PASSWORD_RET ret);
-        private onAskPasswordAction _onAskPasswordAction;
-        public Func<Ark.SArkFileItem, Ark.ARK_PASSWORD_ASKTYPE, Ark.ARK_PASSWORD_RET, string> AskPasswordAction
-        {
-            set
-            {
-                _onAskPasswordAction = (x, y, z) => value(x, y, z);
-                if (value != null)
-                    _onAskPassword = onAskPassword;
-                SetCB_evt_OnAskPassword(_onAskPassword);
-            }
-        }
-        void onAskPassword(IntPtr file, Ark.ARK_PASSWORD_ASKTYPE ask, ref Ark.ARK_PASSWORD_RET ret, out string passwordW)
-        {
-            passwordW = _onAskOverwriteAction != null ? _onAskPasswordAction((Ark.SArkFileItem)Marshal.PtrToStructure(file, typeof(Ark.SArkFileItem)), ask, ret) : null;
-            ret = string.IsNullOrEmpty(passwordW) ? Ark.ARK_PASSWORD_RET.CANCEL : Ark.ARK_PASSWORD_RET.OK;
-
-            if (!Ark.IsSolidArchive())
-                return;
-
-            _onOpeningAction = (x, y) =>
-            {
-                _onOpening = onOpening;
-                return false;
-            };
-        }
         #endregion
 
-        public ArkEvent()
-        {
-            Opening = onOpening;
-            StartFile = onStartFile;
-            ProgressFile = onProgressFile;
-            CompleteFile = onCompleteFile;
-            Error = onError;
-            MultiVolumeFileChanged = x => { };
-            AskOverwrite = onAskOverwrite;
-            AskPassword = onAskPassword;
+        public void Init()
+        {            
+            ArkEvent.SetOnOpenning((x, y) => false);
+            ArkEvent.SetOnStartFile((x, y) => false);
+            ArkEvent.SetOnProgressFile(x => false);
+            ArkEvent.SetOnCompleteFile((x, y) => { });
+            ArkEvent.SetOnError((x, y, z) => true);
+            //OnMultiVolumeFileChanged
+            //OnAskOverwrite
+            //OnAskPassword
         }
     }
-
-    public class ArkInStream : Singleton<ArkInStream>
-    {
-        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SetCB_in_Read")]
-        public static extern int SetCB_in_Read(MulticastDelegate callBack);
-        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SetCB_in_SetPos")]
-        public static extern int SetCB_in_SetPos(MulticastDelegate callBack);
-        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SetCB_in_GetPos")]
-        public static extern int SetCB_in_GetPos(MulticastDelegate callBack);
-        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SetCB_in_GetSize")]
-        public static extern int SetCB_in_GetSize(MulticastDelegate callBack);
-        [DllImport("ArkDll.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SetCB_in_Close")]
-        public static extern int SetCB_in_Close(MulticastDelegate callBack);
-
-        //입력 스트림에서 데이타를 읽을때 호출됩니다. 
-        public delegate bool Read(
-            [Out] out IntPtr lpBuffer,
-            [In] uint nNumberOfBytesToRead,
-            [Out] out uint lpNumberOfBytesRead);
-        public Read _Read;
-        //입력 스트림에서 데이타를 읽는 위치를 바꾸고자 할 때 호출됩니다. 
-        public delegate long SetPos(long pos);
-        public SetPos _SetPos;
-        //입력 스트림에서 현재 위치를 알고자 할 때 호출됩니다. 
-        public delegate long GetPos();
-        public GetPos _GetPos;
-        //입력 스트림의 크기를 알고자 할 때 호출됩니다. 
-        public delegate long GetSize();
-        public GetSize _GetSize;
-        //입력 스트림을 닫고자 할 때 호출됩니다. 
-        public delegate bool Close();
-        public Close _Close;
-
-        public MemoryStream ArchiveStream { set; get; }
-
-        public ArkInStream()
-        {
-            SetCB_in_Close(_Close = () => { ArchiveStream = null;  return true; });
-            SetCB_in_GetPos(_GetPos = () => ArchiveStream.Position);
-            SetCB_in_SetPos(_SetPos = x => { ArchiveStream.Position = x; return ArchiveStream.Position; });
-            SetCB_in_GetSize(_GetSize = () => ArchiveStream.Length);
-            SetCB_in_Read(_Read = read);
-        }
-
-        bool read(out IntPtr lpBuffer, uint nNumberOfBytesToRead, out uint lpNumberOfBytesRead)
-        {
-            byte[] buffer = new byte[nNumberOfBytesToRead];
-            ArchiveStream.Read(buffer, 0, buffer.Length);
-            
-            lpNumberOfBytesRead = (uint)buffer.LongLength;
-            lpBuffer = Marshal.AllocHGlobal(buffer.Length); 
-
-            //Marshal.FreeHGlobal(unmanagedPointer);
-            return true;
-        }
-    }
-
-    public class ArkOutStream : Singleton<ArkOutStream>
+    
+    public class ArkOutStream : SingletonBase<ArkOutStream>
     {
         [DllImport("ArkDll.dll", EntryPoint = "SetCB_out_Open", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
         private static extern int SetCB_out_Open(MulticastDelegate callBack);
@@ -1300,33 +1028,6 @@ namespace ArkWrap
             Write = (x, y) => true;
             Close = () => true;
             CreateFolder = x => true;
-        }
-    }
-
-    /// <summary>
-    /// 버퍼의 메모리를 직접 참조로 넘겨주기 위한 캡슐화 클래스
-    /// 기본적으로 메모리 스트림을 가지고, 파일로 쓰기위한 기능을 갖춤
-    /// </summary>
-    public class FIleMemoryStream
-    {
-        private Stream memory;
-
-        public Stream Memory { get { return memory; } }
-
-        public FIleMemoryStream ()
-        {
-            memory = new MemoryStream();
-        }
-
-        public void AddByte(byte[] b)
-        {
-            memory.SetLength(memory.Length + b.Length);
-            memory.Write(b, 0, b.Length);
-        }
-
-        public void Destroy()
-        {
-            memory.Dispose();
         }
     }
 }

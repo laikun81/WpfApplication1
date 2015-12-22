@@ -21,7 +21,6 @@ namespace ArkWrap
         protected string _path;
         // 압축파일의 내용
         public Dictionary<int, Ark.SArkFileItem> FileItems { get; private set; }
-        // 전체파일갯수
         public bool IsLoaded { get; private set; }
         public double Loading { get { return FileItems == null ? 0 : Cursor / FileItems.Count(); } }
         // 현재 커서
@@ -40,10 +39,9 @@ namespace ArkWrap
                 throw new ArgumentException("Is Not Exist File");
 
             _path = path;
-            Ark.ARKERR err = Ark.Init();
+            Ark.ARKERR err = Ark.Create();
             if (err != Ark.ARKERR._NOERR)
                 throw new Exception(err.ToString());
-            ArkEvent.Init();
 
             if (!Ark.Open(path, pass))
                 throw new FileLoadException("File Open Error" + Ark.GetLastErrorArk().ToString());
@@ -55,8 +53,8 @@ namespace ArkWrap
             FileItems = new Dictionary<int, Ark.SArkFileItem>(length);
             for (Cursor = 0; Cursor < length; Cursor++)
             {
-                IntPtr ptr = Ark.GetFileItem(Cursor);
-                FileItems.Add(Cursor, (Ark.SArkFileItem)Marshal.PtrToStructure(ptr, typeof(Ark.SArkFileItem)));
+                //IntPtr ptr = Ark.GetFileItem(Cursor);
+                //FileItems.Add(Cursor, (Ark.SArkFileItem)Marshal.PtrToStructure(ptr, typeof(Ark.SArkFileItem)));
             }
             IsLoaded = true;
         }

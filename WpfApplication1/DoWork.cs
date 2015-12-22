@@ -52,7 +52,7 @@ namespace WpfApplication1
             }
             else
             {
-                main.Dispatcher.BeginInvoke((Action)delegate { ArkWork.Instance.LoadArchive(file); }).Completed += (x, y) => { LoadFrames(); };
+                //main.Dispatcher.BeginInvoke((Action)delegate { ArkWork.Instance.LoadArchive(file); }).Completed += (x, y) => { LoadFrames(); };
             }
         }
 
@@ -62,8 +62,8 @@ namespace WpfApplication1
             imageWindow = new ImageWindow();
 
             string pattern = "^?.(bmp|gif|png|jpeg|jpg|tif)$";
-            imageIndex = ArkWork.Instance.ArchivedFiles.Where(x => Regex.IsMatch(x.Value.Filename, pattern, RegexOptions.IgnoreCase))
-                .OrderBy(x => x.Value.fileNameW).Select(x => x.Key).ToArray();
+            //imageIndex = ArkWork.Instance.ArchivedFiles.Where(x => Regex.IsMatch(x.Value.Filename, pattern, RegexOptions.IgnoreCase))
+            //    .OrderBy(x => x.Value.fileNameW).Select(x => x.Key).ToArray();
 
             frames = new ImageFrame[imageIndex.Length];
             bmps = new BitmapImage[imageIndex.Length];
@@ -74,7 +74,7 @@ namespace WpfApplication1
             {
                 frames[i] = new ImageFrame();
                 frames[i].KeyDown += image_KeyDown;
-                frames[i].lbl_name.Content = ArkWork.Instance.ArchivedFileNames[imageIndex[i]];
+                //frames[i].lbl_name.Content = ArkWork.Instance.ArchivedFileNames[imageIndex[i]];
                 imageWindow.panel.Children.Add(frames[i]);
             }
             var spl = new System.Windows.Controls.Separator();
@@ -86,7 +86,7 @@ namespace WpfApplication1
             imageWindow.panel.Children.Add(spl);
             imageWindow.panel.Children.Insert(0, spr);
 
-            new Thread(() => { ArkWork.Instance.ExtractToStream(); }).Start();
+            //new Thread(() => { ArkWork.Instance.ExtractToStream(); }).Start();
 
             if (main != null)
                 main.Close();
@@ -105,29 +105,29 @@ namespace WpfApplication1
             if (image.Source != null && (customWidth == 0 || customWidth == (int)Math.Ceiling(image.Source.Width)))
                 return;
 
-            while (ArkWork.Instance.ExtractedStreams[imageIndex[index]] == null)
-            {
-                Console.WriteLine("Stream null :{0}({1})", index, imageIndex[index]);
-                Thread.Sleep(100);
-            }
+            //while (ArkWork.Instance.ExtractedStreams[imageIndex[index]] == null)
+            //{
+            //    Console.WriteLine("Stream null :{0}({1})", index, imageIndex[index]);
+            //    Thread.Sleep(100);
+            //}
 
-            var source = new BitmapImage();
-            var bmp = new System.Drawing.Bitmap(ArkWork.Instance.ExtractedStreams[imageIndex[index]]);
-            var bmpStream = new MemoryStream(bmp.Width * bmp.Height);
+            //var source = new BitmapImage();
+            //var bmp = new System.Drawing.Bitmap(ArkWork.Instance.ExtractedStreams[imageIndex[index]]);
+            //var bmpStream = new MemoryStream(bmp.Width * bmp.Height);
 
-            bmp.SetResolution(96, 96);
-            bmp.Save(bmpStream, System.Drawing.Imaging.ImageFormat.Bmp);
-            bmpStream.Seek(0, SeekOrigin.Begin);
+            //bmp.SetResolution(96, 96);
+            //bmp.Save(bmpStream, System.Drawing.Imaging.ImageFormat.Bmp);
+            //bmpStream.Seek(0, SeekOrigin.Begin);
 
-            source.BeginInit();
-            source.StreamSource = bmpStream;
+            //source.BeginInit();
+            //source.StreamSource = bmpStream;
 
-            if (bmp.Size.Height >= SystemParameters.MaximizedPrimaryScreenHeight)
-                source.DecodePixelHeight = (int)SystemParameters.MaximizedPrimaryScreenHeight;
-            if (customWidth != 0 && bmp.Width > source.PixelWidth)
-                source.DecodePixelWidth = customWidth;
+            //if (bmp.Size.Height >= SystemParameters.MaximizedPrimaryScreenHeight)
+            //    source.DecodePixelHeight = (int)SystemParameters.MaximizedPrimaryScreenHeight;
+            //if (customWidth != 0 && bmp.Width > source.PixelWidth)
+            //    source.DecodePixelWidth = customWidth;
 
-            image.Source = source;
+            //image.Source = source;
         }
 
         void imageClose(int index)

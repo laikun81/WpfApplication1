@@ -1,21 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Windows.Threading;
 
 namespace WpfApplication1
 {
@@ -78,6 +68,18 @@ namespace WpfApplication1
 
         private void btn_work_Click(object sender, RoutedEventArgs evt)
         {
+
+
+            //BWork.Init();
+            BWork.Instance.Load(@"D:\TEMP\(成年コミック) [雑誌] コミックメガストアα 2015年8月号.zip");
+            BWork.Instance.ExtractOne(0);
+            BWork.Instance.ExtractOne(1);
+            BWork.Instance.ExtractOne(2);
+            BWork.Instance.ExtractOne(3);
+
+            return;
+
+
             if (lst_filelist.Items.Count == 0)
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog();
@@ -123,18 +125,18 @@ namespace WpfApplication1
                     {
                         switch (cmb_batch.SelectedIndex)
                         {
-                            case 0:
-                                Batch_old.ReSize(file.Path, lbl_destination.Content.ToString());
-                                break;
-                            case 1:
-                                Batch_old.Thumbnail(file.Path, lbl_destination.Content.ToString());
-                                break;
-                            case 2:
-                                Batch_old.HCG2(file.Path, lbl_destination.Content.ToString());
-                                break;
-                            case 3:
-                                Batch_old.OnlyImage(file.Path);
-                                break;
+                            //case 0:
+                            //    Batch_old.ReSize(file.Path, lbl_destination.Content.ToString());
+                            //    break;
+                            //case 1:
+                            //    Batch_old.Thumbnail(file.Path, lbl_destination.Content.ToString());
+                            //    break;
+                            //case 2:
+                            //    Batch_old.HCG2(file.Path, lbl_destination.Content.ToString());
+                            //    break;
+                            //case 3:
+                            //    Batch_old.OnlyImage(file.Path);
+                            //    break;
                             default:
                                 break;
                         }
