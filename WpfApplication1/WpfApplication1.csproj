@@ -147,6 +147,10 @@
       <Project>{92cbfc34-c2c8-4da5-b1a1-0701ae69f252}</Project>
       <Name>FJCoreWin</Name>
     </ProjectReference>
+    <ProjectReference Include="..\KS\KS.csproj">
+      <Project>{e3748da7-8cf2-4e20-9a18-9d508d75196b}</Project>
+      <Name>KS</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

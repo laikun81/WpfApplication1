@@ -34,7 +34,7 @@ namespace WpfApplication1
         protected override bool FileOpen()
         {
             // 파일 명 필터링
-            if (filterfile.Any(x => x.Equals(Path.GetFileName(FileName), StringComparison.OrdinalIgnoreCase)) || !filterext.Contains(Path.GetExtension(FileName)))
+            if (filterfile.Any(x => x.Equals(Path.GetFileName(UnArchiveFileName), StringComparison.OrdinalIgnoreCase)) || !filterext.Contains(Path.GetExtension(UnArchiveFileName)))
             {
                 progressMax--;
                 return false;
@@ -51,29 +51,31 @@ namespace WpfApplication1
 
         protected override bool StreamClose()
         {
-            if (FileStream == null || FileStream.Length == 0)
+            if (UnArchiveFileStream == null || UnArchiveFileStream.Length == 0)
                 return true;
 
             // 파일 사이즈 필터링
-            if (filtersize.Contains(FileStream.Length))
+            if (filtersize.Contains(UnArchiveFileStream.Length))
                 return true;
 
             // 익명함수의 스코프 문제
-            var name = FileName;
+            var name = UnArchiveFileName;
             var stream = new MemoryStream();
-            FileStream.CopyTo(stream);
+            UnArchiveFileStream.CopyTo(stream);
             stream.Seek(0, SeekOrigin.Begin);
             
             // 이미지변환 스레드 기동 
             task = Task.Factory.StartNew(() =>
             {
-                name = BatchUtil.ReplaceMulti(name, delfilename);
-                name = BatchUtil.ReplaceMulti(name, deltag);
-                name = Regex.Replace(name, "^[^\n]+\\\\", "");
-                name = temporary + Path.DirectorySeparatorChar + Path.ChangeExtension(name, ".jpg");
+                //name = BatchUtil.ReplaceMulti(name, delfilename);
+                //name = BatchUtil.ReplaceMulti(name, deltag);
+                //name = Regex.Replace(name, "^[^\n]+\\\\", "");
+                //name = temporary + Path.DirectorySeparatorChar + Path.ChangeExtension(name, ".jpg");
 
+                // jpg변환
                 using (var jpg = FluxJpeg.Core.Image.ConvertStreamJPG(stream))
                 {
+                    // 변환된 메모리를 파일에 쓰기
                     using (var file = new FileStream(name, FileMode.CreateNew, FileAccess.Write))
                     {
                         jpg.Seek(0, SeekOrigin.Begin);
@@ -116,13 +118,13 @@ namespace WpfApplication1
             {
                 var arcname = parent.FullName + Path.DirectorySeparatorChar + (target is DirectoryInfo ? target.Name + ".zip" : Path.ChangeExtension(target.Name, ".zip"));
                 if (File.Exists(arcname))
-                    BatchUtil.GoRecycle(arcname);
+                    KS.Util.FileGoRecycle(arcname);
 
                 // 폴더 압축
                 System.IO.Compression.ZipFile.CreateFromDirectory(temporary, arcname, System.IO.Compression.CompressionLevel.NoCompression, false);
 
                 // 원본삭제
-                BatchUtil.GoRecycle(target.FullName);
+                KS.Util.FileGoRecycle(target.FullName);
 
                 // 임시폴더 삭제
                 if (Directory.Exists(temporary))
